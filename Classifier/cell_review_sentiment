@@ -1,0 +1,83 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jun 26 18:07:56 2019
+
+@author: Goutham
+"""
+
+import nltk
+import random
+import re
+from re import split
+from nltk.corpus import stopwords
+import pickle
+
+
+def document_features(document):
+    global word_features
+    #for when we run the classifier (but we did this for training already)
+    if not document.get('words'):
+        document['words'] = split('\W+', document['doc'])
+    #find all unique words
+    document_words = set(document['words'])
+        
+    features = {}
+    
+    if __name__ == "__main__":
+        for word in word_features:
+            #simply finding and formatting the features 
+            features['contains(%s)' % word] = (word in document_words)
+    else:
+        f = open('word_feat.pickle', 'rb')
+        word_features = pickle.load(f)
+        f.close()
+        for word in word_features:
+            #simply finding and formatting the features 
+            features['contains(%s)' % word] = (word in document_words)
+          
+    return features
+
+if __name__ == "__main__":
+    
+    documents = []
+    
+    with open('amazon_cells_labelled.txt',"r") as r:        
+        for line in r:
+            match = re.findall(r'(\w.*)(\d)', line)
+            if(len(match) > 0):
+                msg = match[0][0].strip()
+                is_class= match[0][1].strip()
+                documents.extend([ dict(doc=msg.lower(), category=is_class)])
+                
+    for n in range(len(documents)):
+        #create a node in the dict with all the words 
+        documents[n]['words'] = split('\W+', documents[n]['doc'])
+            
+    #find the freq dist of all the words (if you ever wonder what a piece of code does, just add print statements )
+    all_words = nltk.FreqDist(w.lower() for d in documents for w in d['words'] if w not in stopwords.words() and not w.isdigit())
+        
+    #choose the top 2000 as features, experiment with 500 or 5000
+    word_features = list(all_words.keys())[:500]
+
+
+    random.shuffle(documents)
+    featuresets = [(document_features(d), d['category']) for d in documents]
+    
+    #splitting the set to train on the first 1000, test on the rest, try different combos
+    train_set, test_set = featuresets[:500], featuresets[500:]
+    
+    #train the naive bayes classifier
+    classifier = nltk.NaiveBayesClassifier.train(train_set)
+    print("Accuracy of classifier: " + str(nltk.classify.accuracy(classifier, test_set)))
+    classifier.show_most_informative_features(25)
+    
+    
+    #Saving the classifier
+    f = open('my_classifier.pickle', 'wb')
+    pickle.dump(classifier, f)
+    f.close()
+    
+    f = open('word_feat.pickle', 'wb')
+    pickle.dump(word_features, f)
+    f.close()
+    
